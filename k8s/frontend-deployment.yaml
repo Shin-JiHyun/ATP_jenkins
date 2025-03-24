@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: front
+  name: frontend-canary
 spec:
   replicas: 1
   strategy:
