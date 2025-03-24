@@ -28,4 +28,4 @@ spec:
       volumes:
         - name: nginx-config
           configMap:
-            name: user-config
+            name: front-nginx-config
