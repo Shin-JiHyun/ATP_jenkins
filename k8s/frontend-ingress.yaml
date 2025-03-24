@@ -14,6 +14,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: frontend-service.yaml
+            name: frontend-service
             port:
               number: 80
