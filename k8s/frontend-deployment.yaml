@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: frontend-v{version}
 spec:
-  replicas: 3
+  replicas: 1
   strategy:
     type: Recreate
   revisionHistoryLimit: 1
@@ -11,15 +11,14 @@ spec:
     matchLabels:
         type: frontend 
         app: user
-        #version: stable 
-        #canary: "false"
+        version: {version}
   template:
     metadata:
       labels:
         type: frontend 
         app: user
+        version: {version}
         #version: stable 
-        #canary: "false"
     spec:
       containers:
         - name: nginx
