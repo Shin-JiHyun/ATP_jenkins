@@ -12,12 +12,14 @@ spec:
         type: frontend 
         app: user
         version: stable 
+        canary: "false"
   template:
     metadata:
       labels:
         type: frontend 
         app: user
         version: stable 
+        canary: "false"
     spec:
       containers:
         - name: nginx
