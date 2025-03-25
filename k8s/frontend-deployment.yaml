@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend-v{version}
+  namespace: sjh
 spec:
   replicas: 1
   strategy:
@@ -11,13 +12,13 @@ spec:
     matchLabels:
         type: frontend 
         app: user
-        version: {version}
+        version: "{version}"
   template:
     metadata:
       labels:
         type: frontend 
         app: user
-        version: {version}
+        version: "{version}"
     spec:
       containers:
         - name: nginx
