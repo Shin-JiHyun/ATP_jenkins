@@ -18,7 +18,6 @@ spec:
         type: frontend 
         app: user
         version: {version}
-        #version: stable 
     spec:
       containers:
         - name: nginx

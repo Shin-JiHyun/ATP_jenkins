@@ -1,0 +1,148 @@
+pipeline {
+    agent any
+
+    environment {
+        GIT_DEPLOYMENT_YAML = 'https://raw.githubusercontent.com/Shin-JiHyun/ATP_jenkins/develop/k8s/frontend-deployment.yaml'
+        GIT_FRONTEND_SERVICE_YAML = 'https://raw.githubusercontent.com/Shin-JiHyun/ATP_jenkins/develop/k8s/frontend-service.yaml'
+        GIT_FRONTEND_CANARY_SERVICE_YAML = 'https://raw.githubusercontent.com/Shin-JiHyun/ATP_jenkins/develop/k8s/frontend-canary-service.yaml'
+        GIT_INGRESS_YAML = 'https://raw.githubusercontent.com/Shin-JiHyun/ATP_jenkins/develop/k8s/frontend-ingress.yaml'
+        GIT_CANARY_INGRESS_YAML = 'https://raw.githubusercontent.com/Shin-JiHyun/ATP_jenkins/develop/k8s/frontend-canary-ingress.yaml'
+        GIT_LOADBALANCER_SERVICE_YAML = 'https://raw.githubusercontent.com/Shin-JiHyun/ATP_jenkins/develop/k8s/frontend-loadbalancer-service.yaml'
+        NAMESPACE = 'sjh'
+    }
+
+    stages {
+        stage('Deploy Applications') {
+            steps {
+                script {
+                    sh """
+                        curl -sL ${GIT_DEPLOYMENT_YAML} | sed 's/name: frontend-v{version}/name: frontend-v${BUILD_ID}/g' | sed 's/version: {version}/version: ${BUILD_ID}/g' | sed 's/image: my-app:latest/image: my-app:${BUILD_ID}/g' | kubectl apply -n ${NAMESPACE} -f -
+
+                    """
+                }
+            }
+        }
+
+        stage('Deploy Services & Ingress') {
+            steps {
+                script {
+                    sh """
+                        curl -sL ${GIT_LOADBALANCER_SERVICE_YAML} | kubectl apply -n ${NAMESPACE} -f -
+                        curl -sL ${GIT_FRONTEND_CANARY_SERVICE_YAML} | sed 's/version: {version}/version: ${BUILD_ID}/g'  | kubectl apply -n ${NAMESPACE} -f -
+                        curl -sL ${GIT_CANARY_INGRESS_YAML} | kubectl apply -n ${NAMESPACE} -f -
+                    """
+                }
+            }
+        }
+
+        stage('Check Deployment Status') {
+            steps {
+                script {
+                    sh """
+                        kubectl rollout status deployment/frontend-v${BUILD_ID} -n ${NAMESPACE}
+                        kubectl wait --for=condition=available deployment/frontend-v${BUILD_ID} --timeout=120s -n ${NAMESPACE}
+                        kubectl rollout status deployment/frontend-v${BUILD_ID} -n ${NAMESPACE}
+                        kubectl wait --for=condition=available deployment/frontend-v${BUILD_ID} --timeout=120s -n ${NAMESPACE}
+                    """
+                }
+            }
+        }
+
+        stage('Gradually Increase Canary Traffic') {
+            steps {
+                script {
+                    def canary_weights = [30, 50, 100]  // Canary 트래픽 증가 단계
+                    for (weight in canary_weights) {
+                        sh """
+                            kubectl annotate ingress frontend-canary-ingress -n sjh nginx.ingress.kubernetes.io/canary-weight="${weight}" --overwrite
+                            sleep 10  # 안정성 확인 대기 시간
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Promote Canary to Stable') {
+            steps {
+                script {
+                    def oldCanaryIngress = "frontend-canary-ingress"
+                    def newStableIngress = "frontend-ingress"
+                    def oldCanaryService = "frontend-canary-service"
+                    def newCanaryService = "frontend-service"
+
+                    sh """
+                        # 기존 Stable Ingress 삭제 (기존에 있을 경우)
+                        kubectl delete ingress ${newStableIngress} -n ${NAMESPACE} --ignore-not-found
+
+                        # 기존 Canary Ingress를 삭제 후 Stable로 재배포
+                        kubectl get ingress ${oldCanaryIngress} -n ${NAMESPACE} -o yaml | sed 's/name: ${oldCanaryIngress}/name: ${newStableIngress}/' | kubectl apply -n ${NAMESPACE} -f -
+
+                        echo "Canary Ingress has been promoted to Stable as ${newStableIngress}."
+                        
+                        
+                        # 기존 Stable Service 삭제 (기존에 있을 경우)
+                        kubectl delete service ${newCanaryService} -n ${NAMESPACE} --ignore-not-found
+
+                        # 기존 Canary Ingress를 삭제 후 Stable로 재배포
+                        kubectl get service ${oldCanaryService} -n ${NAMESPACE} -o yaml | sed 's/name: ${oldCanaryService}/name: ${newCanaryService}/' | kubectl apply -n ${NAMESPACE} -f -
+
+                        echo "Canary Ingress has been promoted to Stable as ${newCanaryService}."
+                        
+                        
+                    """
+                }
+            }
+        }
+        stage('Prepare Next Canary Ingress & Service') {
+            steps {
+                script {
+                    sh """
+                        echo "Applying Canary Service..."
+                        cat << EOF | kubectl apply -n ${NAMESPACE} -f -
+        apiVersion: v1
+        kind: Service
+        metadata:
+        name: frontend-canary-service
+        namespace: ${NAMESPACE}
+        spec:
+        selector:
+            type: frontend
+            app: user
+            version: canary-${BUILD_ID}  # ✅ 최신 Canary Deployment만 바라보도록 설정
+        ports:
+            - protocol: TCP
+            port: 80
+            targetPort: 80
+        type: LoadBalancer
+        EOF
+
+                        echo "Applying Canary Ingress..."
+                        cat << EOF | kubectl apply -n ${NAMESPACE} -f -
+        apiVersion: networking.k8s.io/v1
+        kind: Ingress
+        metadata:
+        name: frontend-canary-ingress
+        namespace: ${NAMESPACE}
+        annotations:
+            nginx.ingress.kubernetes.io/canary: "true"
+            nginx.ingress.kubernetes.io/canary-weight: "10"
+            nginx.ingress.kubernetes.io/rewrite-target: /
+        spec:
+        ingressClassName: nginx
+        rules:
+            - http:
+                paths:
+                - path: /
+                    pathType: Prefix
+                    backend:
+                    service:
+                        name: frontend-canary-service  # ✅ Canary 서비스와 연결됨
+                        port:
+                        number: 80
+        EOF
+                    """
+                }
+            }
+        }
+    }
+}

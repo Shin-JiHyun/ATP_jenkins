@@ -2,9 +2,10 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   namespace: sjh
-  name: frontend-ingress
+  name: frontend-ingress-v{version}
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/canary-weight: "10"
 spec:
   ingressClassName: nginx
   rules:
@@ -14,6 +15,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: frontend-service
+            name: frontend-service-v{version}
             port:
               number: 80
