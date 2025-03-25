@@ -4,7 +4,7 @@ metadata:
   namespace: sjh
   name: frontend-ingress-v{version}
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/canary: "true"
     nginx.ingress.kubernetes.io/canary-weight: "10"
 spec:
   ingressClassName: nginx
