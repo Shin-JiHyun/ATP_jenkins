@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: sjhyun0000/user-front:2.0
+          image: k6kjun/atpfront:{version}
           volumeMounts:
             - name: nginx-config
               mountPath: /etc/nginx/conf.d/
