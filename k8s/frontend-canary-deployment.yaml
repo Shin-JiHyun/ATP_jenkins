@@ -11,15 +11,15 @@ spec:
     matchLabels:
         type: frontend 
         app: user
-        version: canary
-        canary: "true"
+        #version: canary
+        #canary: "true"
   template:
     metadata:
       labels:
         type: frontend 
         app: user
-        version: canary 
-        canary: "true"
+        #version: canary 
+        #canary: "true"
     spec:
       containers:
         - name: nginx
