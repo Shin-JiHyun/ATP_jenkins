@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: frontend
 spec:
-  replicas: 9
+  replicas: 3
   strategy:
     type: Recreate
   revisionHistoryLimit: 1
@@ -16,6 +16,7 @@ spec:
       labels:
         type: frontend 
         app: user
+        version: stable 
     spec:
       containers:
         - name: nginx
