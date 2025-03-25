@@ -11,6 +11,7 @@ spec:
     matchLabels:
         type: frontend 
         app: user
+        version: stable 
   template:
     metadata:
       labels:
